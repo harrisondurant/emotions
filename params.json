@@ -1,0 +1,49 @@
+{
+    "num_images": 696,
+    "num_actors": 50,
+    "num_emotions": 7,
+    "labels": ["neutral", "anger", "disgust", 
+                "fear", "happy", "sad", "surprise"],
+
+    "max-pool": true,
+    "height": 200,
+    "width": 75,
+    "pool_height": 5,
+    "pool_width": 5,
+    "stride": 5,
+    "new_height": 40,
+    "new_width": 15,
+
+    "use_batches": false,
+    "curr_batch": 1,
+    "num_batches": 10,
+
+    "run_pca": false,
+    "num_components": 365,
+    "whiten": false,
+
+    "gen_log_gabor": false,
+    "scales": 4,
+    "orientations": 8,
+    "Lnorm": 2,
+    "minWaveLength": 3,
+    "mult": 2,
+    "sigmaOnf": 0.65,
+    "dThetaOnSigma": 1.3,
+    "dataset_path": "tilburg.pickle",
+
+    "gen_grid_imgs": false,
+    "scale": 0.5,
+    "spacing": 5,
+    "grid_img_path": "",
+    "outfile_name": "",
+
+    "gen_imageset": false,
+    "image_dir": "tilburg_imageset",
+
+    "run_svm": true,
+    "num_folds": 10,
+    "num_trials": 10,
+    "C": 1.0
+
+}
