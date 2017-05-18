@@ -12,7 +12,6 @@ import lg
 
 
 def main(params):
-
     if params['use_batches']:
         batch_no = params['curr_batch']
         num_batches = params['num_batches']
@@ -20,12 +19,20 @@ def main(params):
             print('ERROR - batch number: please enter a number 1-%d' % (num_batches))
             return
 
-    if params['gen_log_gabor']:
-        generate_features(params)
-
     if params['gen_imageset']:
         generate_tilburg_imageset(params)
-        
+    
+    if params['gen_log_gabor']:
+        generate_features(params)    
+
+    if params['run_pca']:
+        features = load_full_features(params)
+        pca.generate_pca_features(params, features)
+
+    if params['run_svm']:
+        features = load_full_features(params)
+        classifier.run_svm(params, features)
+
     if params['gen_grid_imgs']:
         imgpath = params['grid_img_path']
         outfile_name = params['outfile_name']
@@ -37,17 +44,12 @@ def main(params):
         response_img = freq_response_grid(params, features)
         misc.imsave(outfile_name, response_img)
 
-    if params['run_pca']:
-        features = load_full_features(params)
-        pca.generate_pca_features(params, features)
-
-    if params['run_svm']:
-        #features = load_pca_features()
-        features = load_full_features(params)
-        classifier.run_svm(params, features)
 
 def generate_features(params):
-
+    """
+    This function generates Log-Gabor features for each image in the Tilburg imageset,
+    concatenates features into a numpy matrix, and writes to an output file.
+    """
     dataset = load_tilburg_imageset(params)
 
     scales = params['scales']
@@ -57,9 +59,15 @@ def generate_features(params):
     print('%d scales and %d orientations' % (scales, orientations))
 
     H,W = params['height'],params['width']
+    D = H * W
 
     if params['max-pool']:
-        D = params['new_height'] * params['new_width'] + 1
+        pool_height = params['pool_height']
+        pool_width = params['pool_width']
+        stride = params['stride']
+        h_ = int((H - pool_height) / stride + 1)
+        w_ = int((W - pool_width) / stride + 1)
+        D = h_ * w_ + 1
 
     features = {}
     
@@ -67,40 +75,13 @@ def generate_features(params):
         N = dataset[actor].shape[0]
         features[actor] = np.zeros((N, (D-1) * scales * orientations + 1))
         for n in range(N):
-            print('Generating Log-Gabor features for actor %s, image %d of %d' % (actor, n+1, N))
-            im = dataset[actor][n,1:].reshape(H,W)
-            features[actor][n,0] = dataset[actor][n,0]
-            features[actor][n,1:] = lg.get_log_gabor_features(params, im, scales, orientations)
+            print('Generating Log-Gabor features for actor %2s, image %3d of %3d\r' \
+                    % (actor, n+1, N), end='', flush=True)
+            im = dataset[actor][n,1:].reshape(H, W)
+            features[actor][n, 0] = dataset[actor][n, 0]
+            features[actor][n, 1:] = lg.get_log_gabor_features(params, im, scales, orientations)
 
-    # # if generating a certain batch
-    # if params['use_batches']:
-    #     batch_no = params['curr_batch']
-    #     num_batches = params['num_batches']
-    #     batch_size = int(N / num_batches)
-    #     features = np.zeros((batch_size, (D-1) * scales * orientations + 1))
-    #     count = 0
-    #     for i in range(num_batches):
-    #         if i == batch_no-1:
-    #             print('Batch %d of %d:' % (batch_no, num_batches))
-    #             start = int((N * i) / num_batches)
-    #             for n in range(start, start + batch_size):
-    #                 print('Generating Log-Gabor features for image %d of %d' % (n, N-1))
-    #                 im = dataset[n,1:].reshape(H,W)
-    #                 features[count,0] = dataset[n,0]
-    #                 features[count,1:] = lg.get_log_gabor_features(params, im, scales, orientations)
-    #                 count += 1
-    # else:
-    #     features = np.zeros((N, (D-1) * scales * orientations + 1))
-    #     for n in range(N):
-    #         print('Generating Log-Gabor features for image %d of %d' % (n, N-1))
-    #         im = dataset[n,1:].reshape(H,W)
-    #         features[n,0] = dataset[n,0]
-    #         features[n,1:] = lg.get_log_gabor_features(params, im, scales, orientations)
-
-    # outfile_name = 'batch-%d.pickle' % (batch_no)
-
-    # if batch_no == 0:
-    #     outfile_name = 'full_set.pickle'
+    print()
 
     outfile_name = 'full_features.pickle'
 
@@ -112,7 +93,9 @@ def generate_features(params):
 
 
 def generate_tilburg_imageset(params):
-
+    """
+    This function generates pickle file containing a numpy array of Tilburg images
+    """
     image_dir = params['image_dir']
     dataset_path = params['dataset_path']
 
@@ -125,6 +108,7 @@ def generate_tilburg_imageset(params):
 
     count = 0
     actor_number = 1
+               
     for folder in listdir(image_dir):
 
         actor_array = np.zeros((0, 1 + H*W))
@@ -137,18 +121,18 @@ def generate_tilburg_imageset(params):
                     if key in img_name:
                         if '_' in img_name and not 'montage' in img_name:
                             # read in the image
-                            img = misc.imread(path.join(subject,img_name))
+                            img = misc.imread(path.join(subject, img_name))
                         
                             # the first number in each row will be the label 
-                            label = np.array([idx]).reshape((1,1))
+                            label = np.array([idx]).reshape((1, 1))
 
                             # add image and flipped image to dataset 
-                            img = misc.imresize(img,(H,W))
+                            img = misc.imresize(img, (H, W))
                             img_flip = np.fliplr(img)
-                            img = img.reshape(1,H*W)
-                            img_flip = img_flip.reshape(1,H*W)
-                            img_vec = np.hstack((label,img))
-                            img_flip_vec = np.hstack((label,img_flip))
+                            img = img.reshape(1, H*W)
+                            img_flip = img_flip.reshape(1, H*W)
+                            img_vec = np.hstack((label, img))
+                            img_flip_vec = np.hstack((label, img_flip))
 
                             actor_array = np.vstack((actor_array, img_vec, img_flip_vec))
                             
@@ -161,7 +145,6 @@ def generate_tilburg_imageset(params):
             actor_number += 1
 
 
-
     if not path.exists(dataset_path):
         open(dataset_path, 'wb').close()
     
@@ -171,14 +154,7 @@ def generate_tilburg_imageset(params):
     return dataset
 
 
-def load_pca_features():
-    pca_features = None
-    with open('pca_features.pickle', 'rb') as pca:
-        pca_features = pickle.load(pca)
-
-    return pca_features
-
-
+# Load full set of Log-Gabor features
 def load_full_features(params):
     print('Loading full set of Log-Gabor features')
 
@@ -197,6 +173,7 @@ def load_full_features(params):
     return features
 
 
+# Load a batch of images
 def load_batch(batch_no):
     filename = 'batch-%d.pickle' % (batch_no)
     print('Loading batch %d' % (batch_no))
@@ -208,6 +185,7 @@ def load_batch(batch_no):
     return batch
 
 
+# Load the image dataset
 def load_tilburg_imageset(params):
 
     dataset_path = params['dataset_path']
@@ -219,6 +197,7 @@ def load_tilburg_imageset(params):
     return dataset
 
 
+# Generate a grid of frequency responses for an image at each scale and orientation
 def freq_response_grid(params, arr):
     """
     returns an image containing a grid of frequency 
@@ -226,12 +205,16 @@ def freq_response_grid(params, arr):
     """ 
     rows = params['scales']
     cols = params['orientations']
+
     print('%d scales and %d orientations' % (rows, cols))
     
     H,W = params['height'],params['width']
     if params['max-pool']:
-        H = params['new_height']
-        W = params['new_width']
+        pool_height = params['pool_height']
+        pool_width = params['pool_width']
+        stride = params['stride']
+        H = int((H - pool_height) / stride + 1)
+        W = int((W - pool_width) / stride + 1)
         
     scale = params['scale']
     spacing = params['spacing']
@@ -256,6 +239,7 @@ def freq_response_grid(params, arr):
     return grid.T
 
 
+# Parse parameters from file
 def get_params(filepath):
     params = None
     with open(filepath) as param_file:

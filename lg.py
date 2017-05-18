@@ -9,7 +9,7 @@ def get_log_gabor_features(params, im, scales, orientations):
     The University of Western Australia
     http://www.csse.uwa.edu.au/
 
-    Original function was written by Peter Kovesi in MATLAB,
+    Original function was written by Peter Kovesi in Matlab,
     and can be found in /matlab/gaborconvolve.m
 
     This is my translation into python
@@ -60,14 +60,14 @@ def get_log_gabor_features(params, im, scales, orientations):
 
     lG = {}
 
-    h_ = params['new_height']
-    w_ = params['new_width']
+    h_ = int((H - pool_height) / stride + 1)
+    w_ = int((W - pool_width) / stride + 1)
 
     if not params['max-pool']:
         h_ = H
         w_ = W
 
-    response_vec = np.zeros((scales * orientations * h_ * w_), dtype=complex)
+    response_vec = np.zeros((scales * orientations * h_ * w_))
     
     for s in range(scales):
         wavelength = minWaveLength * mult**s
@@ -114,20 +114,20 @@ def get_log_gabor_features(params, im, scales, orientations):
 
             idx = count * (h_ * w_)
 
-            lg_im = np.fft.ifft2(imagefft * filter).reshape(1, H * W)
+            lg_im = np.absolute(np.fft.ifft2(imagefft * filter).reshape(1, H * W))
 
             if params['max-pool']:
-                lg_im = max_pool(params, lg_im.reshape(H,W)).reshape(1,h_*w_)
+                lg_im = max_pool(params, lg_im.reshape(H,W)).reshape(1, h_*w_)
 
             response_vec[idx:idx+h_*w_] = lg_im
 
             wavelength = wavelength * mult
             count += 1
-    
-    response_vec = np.absolute(response_vec)
 
     return response_vec
 
+
+# max-pooling function 
 def max_pool(params, im):
     H,W = im.shape
     pool_height = params['pool_height']
